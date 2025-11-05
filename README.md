@@ -28,7 +28,7 @@ Components
 
 ---
 
-## 🔌 Wiring Connections
+Wiring Connections
 
 | Component | ESP32 Pin | Description |
 |------------|------------|-------------|
