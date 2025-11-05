@@ -1,0 +1,103 @@
+# you need to change the wifi password, ssid, and thingspeak key before using this code
+
+esphome:
+  name: esphome-web-79b514
+  friendly_name: TR1
+  min_version: 2025.9.0
+  name_add_mac_suffix: false
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+# Allow Over-The-Air updates
+ota:
+- platform: esphome
+
+wifi:
+  ssid: "YOUR SSID HERE"
+  password: "YOUR PASSWORD HERE"
+
+captive_portal:
+
+i2c:
+  sda: 21
+  scl: 22
+  scan: true
+
+
+sensor:
+  - platform: scd4x
+    co2:
+      name: "CO₂"
+      id: co2_sensor
+    temperature:
+      name: "Temperatura"
+      id: temp_sensor
+    humidity:
+      name: "Humedad"
+    update_interval: 1min
+
+
+font:
+  - file: "pixelmix.ttf"
+    id: digit_font
+    size: 8
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+
+external_components:
+  - source: github://pr#5477
+    components: [ max7219 ]
+
+display:
+  - platform: max7219digit
+    cs_pin: GPIO5
+    num_chips: 4
+    intensity: 5
+    update_interval: 5s
+    lambda: |-
+      it.set_intensity(5);
+
+      static int state = 0;
+      static unsigned long last_switch = 0;
+      unsigned long now = millis();
+
+      if (now - last_switch > 15000) {
+        state = (state + 1) % 2;
+        last_switch = now;
+      }
+
+      char buffer[32];
+
+      if (state == 0 && id(co2_sensor).has_state()) {
+        snprintf(buffer, sizeof(buffer), "%6.0f", id(co2_sensor).state);
+      } else if (state == 1 && id(temp_sensor).has_state()) {
+        snprintf(buffer, sizeof(buffer), "%.1f°C", id(temp_sensor).state);
+      } else {
+        snprintf(buffer, sizeof(buffer), "Esperant...");
+      }
+
+      it.print(0, 0, id(digit_font), buffer);
+
+http_request:
+  verify_ssl: false
+
+interval:
+  - interval: 10min
+    then:
+      - http_request.get:
+          url: !lambda |-
+            return "https://api.thingspeak.com/update?api_key=YOURAPIKEYHERE" + 
+                   to_string(id(co2_sensor).state) +
+                   "&field2=" + 
+                   to_string(id(temp_sensor).state);
